@@ -29,14 +29,12 @@ class CryptAes:
     HMAC (hash-based message authentication code): Type of message authentication code (MAC)
     involving a cryptographic HASH function and a secret cryptographic key. It may be used to
     simultaneously verify both the data integrity and the authentication of a message.
-    
-    
     """
+    
     #-----------------------------------------------COMMON-----------------------------------------------------------#   
 
     def __init__(self):
         """
-        This class initializes all keys and ids
         nodeid     : unique id to identify device or board
         iv         : pseudorandom initialization vector, this needs to be DIFFERENT for every message.
         staticiv   : static initialization vector to obfuscate the randomized
@@ -52,15 +50,22 @@ class CryptAes:
         The block size of CBC mode of encryption is 16, make sure that any data going into AES
         Encryption is of size 16 bytes.
         """
+        self.nodeid     = 0
+        self.iv         = 0
+        self.staticiv   = 0
+        self.ivkey      = 0
+        self.datakey    = 0
+        self.passphrase = 0
+        self.sessionID  = 0
 
     #------------------------------------SPINNER #1 Needs to Use These Functions--------------------------------------#   
-
-
     def encrypt(self, sensor_data):
         """Encrypt each of the current initialization vector (iv), the nodeid, and the sensor_data 
         using (staticiv, ivkey) for iv and (iv, datakey) for nodeid and sensor_data
         :param sensor_data  : Acceleration X, Acceleration Y, Acceleration Z, and Temperature
         """
+        encrypt_class = aes(self.key)
+
 
     
     def sign_hmac(self, sessionID):
