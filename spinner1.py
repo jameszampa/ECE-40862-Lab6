@@ -3,6 +3,11 @@ from network import WLAN, STA_IF
 from ubinascii import hexlify
 
 
+"""
+Written by: James Zampa
+"""
+
+
 def connect_WiFi(ssid='NachoWifi', password='ICUPatnight'):
     wlan = WLAN(STA_IF)
     wlan.active(True)
