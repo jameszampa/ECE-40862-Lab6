@@ -95,7 +95,22 @@ class CryptAes:
         :return message : MQTT message to publish to Spinner #1 on Topic "Acknowledge", can be "Failed Authentication" 
                           if verification is unsuccessful
         """
-     
+        
+        json_data = json.loads(payload)
+        
+        encrypted_iv = json_data["encrypted_iv"]
+        encrypted_nodeid = json_data["node_id"]
+        data = json_data["data"]   
+        
+        hmac_data = bytes(self.passphrase + self.sessionID + encrypted_iv + encrypted_nodeid + data, 'utf-8')  
+        
+        hmac_new = hmac.new(bytes(self.passphrase), msg=hmac_data, digestmod=hashlib.sha224)
+        
+        if hmac_new != json_data["hmac"]:
+            return "Failed HMAC Authentication"
+        else:
+            return "Passed HMAC Authentication"
+               
             
     def decrypt(self, payload):
         """Decrypts the each encrypted item of the payload.
@@ -103,3 +118,4 @@ class CryptAes:
         :param payload  : received MQTT message from Spinner #1. This includes all encrypted data, nodeid, iv, and HMAC
         :return         : MQTT message to publish to Spinner #1 on Topic "Acknowledge", can be "Successful Decryption"
         """
+
