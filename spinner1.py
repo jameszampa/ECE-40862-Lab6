@@ -1,7 +1,7 @@
 import upip
 from network import WLAN, STA_IF
 from ubinascii import hexlify
-
+import crypt
 
 """
 Written by: James Zampa
@@ -25,6 +25,21 @@ def connect_WiFi(ssid='NachoWifi', password='ICUPatnight'):
     return wlan
 
 
+def http_get(url, data):
+    _, _, host, path = url.split('/', 3)
+    addr = getaddrinfo(host, 80)[0][-1]
+    s = socket()
+    s.connect(addr)
+    s.send(bytes('GET /%s HTTP/1.0\r\nHost: %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s\r\n\r\n' % (path, host, len(data), data), 'utf8'))
+    while True:
+        data = s.recv(100)
+        if data:
+            pass
+        else:
+            break
+    s.close()
+
+
 def switch1_handler(t):
     global STATE, PREV_STATE
     PREV_STATE = STATE
@@ -38,6 +53,15 @@ def sense_g(data):
     if g & 0x200:
         g -= 1024
     return g
+
+
+def temp_c(data):
+    value = data[0] << 8 | data[1]
+    temp = value & 0xFFFF
+    if value & 0x8000:
+        temp -= 65536
+    temp = temp / 128.0
+    return temp
 
 
 def switch2_handler(t):
@@ -140,15 +164,55 @@ def interfacing_sensors():
     print('Acceleration Sensor Configured')
     PREV_STATE = STATE
     STATE = 'Sensor'
+    
 
+def new_data(topic, msg, prev_topic):
+    global I2C_UNIT, STATE, PREV_STATE
+    
+    print(topic, msg)
+    
+    if (topic == b'Acknowledgement') & (prev_topic != b'Acknowledgement'):
+        prev_topic = topic
+    
+    if (topic == b'SessionID') & (prev_topic != b'SessionID'):
+        session_id = msg
+        data = bytearray(6)
+        I2C_UNIT.readfrom_mem_into(83, 0x32, data)
+        x_val = sense_g([data[0], data[1]]) * 0.0039
+        y_val = sense_g([data[2], data[3]]) * 0.0039
+        z_val = sense_g([data[4], data[5]]) * 0.0039
+        # Detect Temperature
+        data = bytearray(2)
+        I2C_UNIT.readfrom_mem_into(72, 0, data)
+        temp = temp_c(data)
+        
+        # Upload to Google Sheet
+        data = {}
+        data['value1'] = 0
+        data['value2'] = session_id
+        data['value3'] = x_val
+        data['value4'] = y_val
+        data['value5'] = z_val
+        data['value6'] = temp
+        http_get('https://maker.ifttt.com/trigger/UpdateSheet/with/key/diOQOLSzW1_Sh8OGpu4QgJ', ujson.dumps(data))
+        
+        crypter = crypt.CryptAes(0)
+        crypter.encrypt((x_val, y_val, z_val, temp))
+        hmac = crypter.sign_hmac(session_id)
+        encrypted_sensor_data = crypter.send_mqtt(hmac)
+        
+        client.publish("Sensor_Data", encrypted_sensor_data)
+    
+    PREV_STATE = STATE
+    STATE = 'Spinner'
+    
+connect_WiFi('Is this the Krusty Krab?', 'tHiSiStHePaSsWoRd')
 
-def spinner():
-    if PREV_STATE != 'Spinner':
-        PWM_ONBOARD.freq(10)
-        PWM_ONBOARD.duty(512)
-
-
-connect_WiFi('DESKTOP-FUGJA40 9245', 'tI5845?9')
+client = umqtt.simple.MQTTClient(b'esp32_', 'farmer.cloudmqtt.com', user='vijxbefv', port='14245', password='YkkggDr3iVuM')
+client.connect()
+client.subscribe(b'SessionID')
+client.subscribe(b'Acknowledgement')
+client.set_callback(new_data)
 
 print('Installing UMQTT and HMAC packages...')
 upip.install('micropython-umqtt.simple')
@@ -161,14 +225,7 @@ SWITCH2    = Pin(39, Pin.IN)
 SWITCH1.irq(trigger=Pin.IRQ_RISING, handler=switch1_handler)
 SWITCH2.irq(trigger=Pin.IRQ_RISING, handler=switch2_handler)
 
-GREEN_LED  = Pin(4, Pin.OUT)
-RED_LED    = Pin(26, Pin.OUT)
-GREEN_LED.off()
-RED_LED.off()
-
 I2C_UNIT = I2C(0, scl=Pin(22), sda=Pin(23), freq=400000)
-
-PWM_ONBOARD = PWM(Pin(13), freq=10, duty=0)
 
 STATE = 'Idle'
 PREV_STATE = 'Idle'
@@ -178,4 +235,4 @@ while(1):
     if STATE == 'Sensor':
         interfacing_sensors()
     elif STATE == 'Spinner':
-        spinner()
+        client.wait_msg()
