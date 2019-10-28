@@ -33,7 +33,7 @@ class CryptAes:
     
     #-----------------------------------------------COMMON-----------------------------------------------------------#   
 
-    def __init__(self):
+    def __init__(self, nodeid, sessionID):
         """
         nodeid     : unique id to identify device or board
         iv         : pseudorandom initialization vector, this needs to be DIFFERENT for every message.
@@ -50,22 +50,34 @@ class CryptAes:
         The block size of CBC mode of encryption is 16, make sure that any data going into AES
         Encryption is of size 16 bytes.
         """
-        self.nodeid     = 0
-        self.iv         = 0
+        self.nodeid     = nodeid
+        self.iv         = random.randint(1, 101).to_bytes(16, byteorder='big')
         self.staticiv   = 0
         self.ivkey      = 0
         self.datakey    = 0
         self.passphrase = 0
-        self.sessionID  = 0
+        self.sessionID  = sessionID
+        
+        self.encrypted_nodeid = None
+        self.encrypted_iv = None
+        self.encrypted_data = None
+        
+        
+        self.iv_aes = AES.new(self.ivkey, AES.MODE_CBC, self.staticiv)
+        self.data_aes = AES.new(self.datakey, AES.MODE_CBC, self.iv)
+       
 
     #------------------------------------SPINNER #1 Needs to Use These Functions--------------------------------------#   
     def encrypt(self, sensor_data):
-        """Encrypt each of the current initialization vector (iv), the nodeid, and the sensor_data 
+        """Encrypt each of the current initialization vector (iv), the nodeid, and the sensor_data. 
         using (staticiv, ivkey) for iv and (iv, datakey) for nodeid and sensor_data
         :param sensor_data  : Acceleration X, Acceleration Y, Acceleration Z, and Temperature
         """
-        encrypt_class = aes(self.key)
-
+        #data will be in a tuple
+        self.encrypted_nodeid = self.data_aes.encrypted(self.nodeid)
+        self.encrypted_iv = self.iv_aes.encrypt(self.iv)
+        self.encrypted_data = self.data_aes.encrypt(sensor_data)
+       
 
     
     def sign_hmac(self, sessionID):
@@ -82,7 +94,7 @@ class CryptAes:
         :param hmac_signed  : generated HMAC
         :return             : MQTT message to publish to Spinner #2 on Topic "Sensor_Data"
         """        
-        
+        return self.encrypted_iv + self.encrypted_nodeid + self.encrypted_data + hmac_signed
         
     #------------------------------------SPINNER #2 Needs to Use These Functions--------------------------------------#   
     
@@ -98,11 +110,11 @@ class CryptAes:
         
         json_data = json.loads(payload)
         
-        encrypted_iv = json_data["encrypted_iv"]
         encrypted_nodeid = json_data["node_id"]
-        data = json_data["data"]   
+        encrypted_iv = json_data["encrypted_iv"] 
+        encrypted_data = json_data["data"]   
         
-        hmac_data = bytes(self.passphrase + self.sessionID + encrypted_iv + encrypted_nodeid + data, 'utf-8')  
+        hmac_data = bytes(self.passphrase + self.sessionID + encrypted_iv + encrypted_nodeid + encrypted_data, 'utf-8')  
         
         hmac_new = hmac.new(bytes(self.passphrase), msg=hmac_data, digestmod=hashlib.sha224)
         
@@ -118,4 +130,19 @@ class CryptAes:
         :param payload  : received MQTT message from Spinner #1. This includes all encrypted data, nodeid, iv, and HMAC
         :return         : MQTT message to publish to Spinner #1 on Topic "Acknowledge", can be "Successful Decryption"
         """
+        
+        
+        json_data = json.loads(payload)
+        
+        encrypted_nodeid = json_data["node_id"]
+        encrypted_iv = json_data["encrypted_iv"]    
+        encrypted_data = json_data["data"]
+        
+        self.decrypted_nodeid = self.data_aes.decrypt(encrypted_nodeid)
+        self.decrypted_iv = self.iv_aes.decrypt(encrypted_iv)  
+        self.decrypted_data = self.data_aes.decrypt(encrypted_data)
+        
+        return "Successful Decryption"
+        
+
 
