@@ -23,6 +23,21 @@ def connect_WiFi(ssid='NachoWifi', password='ICUPatnight'):
     return wlan
 
 
+def http_get(url, data):
+    _, _, host, path = url.split('/', 3)
+    addr = getaddrinfo(host, 80)[0][-1]
+    s = socket()
+    s.connect(addr)
+    s.send(bytes('GET /%s HTTP/1.0\r\nHost: %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s\r\n\r\n' % (path, host, len(data), data), 'utf8'))
+    while True:
+        data = s.recv(100)
+        if data:
+            pass
+        else:
+            break
+    s.close()
+    
+    
 def publish_SessionID(x):
     global SESSION_ID, CLIENT, CRYPT_AES
     id = random.randint(1, 101)
@@ -62,6 +77,18 @@ def new_data(topic, msg):
                 GREEN_LED.freq(GREEN_LED.freq() + 5)
             elif PREV_TEMP - temp >= 1:
                 GREEN_LED.freq(GREEN_LED.freq() - 5)
+        
+        # Update Google Sheet
+        data = {}
+        data['value1'] = 2
+        data['value2'] = session_id
+        data['value3'] = x_val
+        data['value4'] = y_val
+        data['value5'] = z_val
+        data['value6'] = temp
+        # TO DO: CHANGE TO DIFFERENT GOOGLE SHEET
+        http_get('https://maker.ifttt.com/trigger/UpdateSheet/with/key/diOQOLSzW1_Sh8OGpu4QgJ', ujson.dumps(data))
+        
     
     CLIENT.publish("Acknowledgement", ack)
     

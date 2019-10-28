@@ -189,7 +189,7 @@ def new_data(topic, msg, prev_topic):
         
         # Upload to Google Sheet
         data = {}
-        data['value1'] = 0
+        data['value1'] = 1
         data['value2'] = session_id
         data['value3'] = x_val
         data['value4'] = y_val
