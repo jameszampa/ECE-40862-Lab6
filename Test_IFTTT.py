@@ -4,6 +4,10 @@ from ubinascii import hexlify
 import urequests
 import ujson
 from usocket import socket, getaddrinfo
+"""
+Sick comment
+"""
+
 
 def connect_WiFi(ssid='NachoWifi', password='ICUPatnight'):
     wlan = WLAN(STA_IF)
