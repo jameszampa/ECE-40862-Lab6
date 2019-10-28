@@ -2,6 +2,7 @@ import upip
 from network import WLAN, STA_IF
 from ubinascii import hexlify
 import crypt
+import umqtt.simple
 
 """
 Written by: James Zampa
@@ -210,14 +211,15 @@ connect_WiFi('Is this the Krusty Krab?', 'tHiSiStHePaSsWoRd')
 
 client = umqtt.simple.MQTTClient(b'esp32_', 'farmer.cloudmqtt.com', user='vijxbefv', port='14245', password='YkkggDr3iVuM')
 client.connect()
+client.set_callback(new_data)
 client.subscribe(b'SessionID')
 client.subscribe(b'Acknowledgement')
-client.set_callback(new_data)
 
-print('Installing UMQTT and HMAC packages...')
-upip.install('micropython-umqtt.simple')
-upip.install('micropython-umqtt.robust')
-upip.install('micropython-hmac')
+
+# print('Installing UMQTT and HMAC packages...')
+# upip.install('micropython-umqtt.simple')
+# upip.install('micropython-umqtt.robust')
+# upip.install('micropython-hmac')
 
 print('Initialization')
 SWITCH1    = Pin(34, Pin.IN)
