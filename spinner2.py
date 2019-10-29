@@ -44,7 +44,7 @@ def publish_SessionID(x):
     # print(id)
     SESSION_ID = id
     CLIENT.publish("SessionID", str(id))
-    CRYPT_AES = crypt.CryptAes(1, SESSION_ID)
+    CRYPT_AES = crypt.CryptAes(2, SESSION_ID)
 
 
 def new_data(topic, msg):
@@ -80,14 +80,8 @@ def new_data(topic, msg):
         
         # Update Google Sheet
         data = {}
-        data['value1'] = 2
-        data['value2'] = session_id
-        data['value3'] = x_val
-        data['value4'] = y_val
-        data['value5'] = z_val
-        data['value6'] = temp
-        # TO DO: CHANGE TO DIFFERENT GOOGLE SHEET
-        http_get('https://maker.ifttt.com/trigger/UpdateSheet/with/key/diOQOLSzW1_Sh8OGpu4QgJ', ujson.dumps(data))
+        data['value1'] = '1|||' + session_id + '|||' + x_val + '|||' + y_val + '|||' + z_val + '|||' + temp
+        http_get('https://maker.ifttt.com/trigger/UpdateSheet_Spinner2/with/key/diOQOLSzW1_Sh8OGpu4QgJ', ujson.dumps(data))
         
     
     CLIENT.publish("Acknowledgement", ack)
@@ -124,11 +118,12 @@ def switch2_handler(t):
     return
 
 
-connect_WiFi('Is this the Krusty Krab?', 'tHiSiStHePaSsWoRd')
+#connect_WiFi('Is this the Krusty Krab?', 'tHiSiStHePaSsWoRd')
+WLAN = connect_WiFi('DESKTOP-FUGJA40 9245', 'tI5845?9')
 
 print('Initialization')
-SWITCH1    = Pin(34, Pin.IN)
-SWITCH2    = Pin(39, Pin.IN)
+SWITCH1    = Pin(27, Pin.IN)
+SWITCH2    = Pin(33, Pin.IN)
 SWITCH1.irq(trigger=Pin.IRQ_RISING, handler=switch1_handler)
 SWITCH2.irq(trigger=Pin.IRQ_RISING, handler=switch2_handler)
 
@@ -145,8 +140,8 @@ CLIENT.subscribe('Sensor_Data')
 CRYPT_AES  = None
 SESSION_ID = None
 PREV_TEMP  = None
-GREEN_LED  = PWM(Pin(4), freq=10, duty=0)
-RED_LED    = Pin(26, Pin.OUT)
+GREEN_LED  = PWM(Pin(12), freq=10, duty=0)
+RED_LED    = Pin(32, Pin.OUT)
 STATE      = 'Idle'
 PREV_STATE = 'Idle'
 

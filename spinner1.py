@@ -4,10 +4,6 @@ from ubinascii import hexlify
 import crypt
 import umqtt.simple
 
-"""
-Written by: James Zampa
-"""
-
 
 def connect_WiFi(ssid='NachoWifi', password='ICUPatnight'):
     wlan = WLAN(STA_IF)
@@ -100,16 +96,10 @@ def update_offset():
 
 
 def interfacing_sensors():
-    global I2C_UNIT, PWM_ONBOARD, STATE, PREV_STATE, RED_LED, GREEN_LED, TOTAL_SAMPLE_COUNT
+    global I2C_UNIT, PWM_ONBOARD, STATE, PREV_STATE, TOTAL_SAMPLE_COUNT
         
     if PREV_STATE != 'Sensor':
-        PWM_ONBOARD.freq(1000)
-        PWM_ONBOARD.duty(512)
-        
         print('Inference Sensor State')
-        
-        RED_LED.off()
-        GREEN_LED.off()
         
         total_samp_count = 0
         total_offset_x = 0
@@ -167,15 +157,15 @@ def interfacing_sensors():
     STATE = 'Sensor'
     
 
-def new_data(topic, msg, prev_topic):
-    global I2C_UNIT, STATE, PREV_STATE
+def new_data(topic, msg):
+    global I2C_UNIT, STATE, PREV_STATE, PREV_TOPIC
     
     print(topic, msg)
     
     if (topic == b'Acknowledgement') & (prev_topic != b'Acknowledgement'):
-        prev_topic = topic
+        PREV_TOPIC = topic
     
-    if (topic == b'SessionID') & (prev_topic != b'SessionID'):
+    if (topic == b'SessionID') & (PREV_TOPIC != b'SessionID'):
         session_id = msg
         data = bytearray(6)
         I2C_UNIT.readfrom_mem_into(83, 0x32, data)
@@ -189,13 +179,8 @@ def new_data(topic, msg, prev_topic):
         
         # Upload to Google Sheet
         data = {}
-        data['value1'] = 1
-        data['value2'] = session_id
-        data['value3'] = x_val
-        data['value4'] = y_val
-        data['value5'] = z_val
-        data['value6'] = temp
-        http_get('https://maker.ifttt.com/trigger/UpdateSheet/with/key/diOQOLSzW1_Sh8OGpu4QgJ', ujson.dumps(data))
+        data['value1'] = '1|||' + session_id + '|||' + x_val + '|||' + y_val + '|||' + z_val + '|||' + temp
+        http_get('https://maker.ifttt.com/trigger/UpdateSheet_Spinner1/with/key/diOQOLSzW1_Sh8OGpu4QgJ', ujson.dumps(data))
         
         crypter = crypt.CryptAes(0)
         crypter.encrypt((x_val, y_val, z_val, temp))
@@ -207,7 +192,8 @@ def new_data(topic, msg, prev_topic):
     PREV_STATE = STATE
     STATE = 'Spinner'
     
-connect_WiFi('Is this the Krusty Krab?', 'tHiSiStHePaSsWoRd')
+# connect_WiFi('Is this the Krusty Krab?', 'tHiSiStHePaSsWoRd')
+WLAN = connect_WiFi('DESKTOP-FUGJA40 9245', 'tI5845?9')
 
 client = umqtt.simple.MQTTClient(b'esp32_', 'farmer.cloudmqtt.com', user='vijxbefv', port='14245', password='YkkggDr3iVuM')
 client.connect()
@@ -231,6 +217,7 @@ I2C_UNIT = I2C(0, scl=Pin(22), sda=Pin(23), freq=400000)
 
 STATE = 'Idle'
 PREV_STATE = 'Idle'
+PREV_TOPIC = None
 
 while(1):
     sleep_ms(100)
