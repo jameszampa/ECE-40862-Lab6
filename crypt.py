@@ -51,7 +51,7 @@ class CryptAes:
         The block size of CBC mode of encryption is 16, make sure that any data going into AES
         Encryption is of size 16 bytes.
         """
-        self.nodeid     = nodeid
+        self.nodeid     = struct.pack("qq", nodeid)
         self.iv         = struct.pack("qq", random.randint(1, 101))
         self.staticiv   = struct.pack("qq", 2)
         self.ivkey      = struct.pack("qq", 4)
@@ -67,9 +67,10 @@ class CryptAes:
         self.decrypted_iv = None
         self.decrypted_data = None
         
-        
+        # print("Hello!")
         self.iv_aes = aes(self.ivkey, 2, self.staticiv)
         self.data_aes = aes(self.datakey, 2, self.iv)
+        # print("Made it!")
        
 
     #------------------------------------SPINNER #1 Needs to Use These Functions--------------------------------------#   
@@ -78,10 +79,10 @@ class CryptAes:
         using (staticiv, ivkey) for iv and (iv, datakey) for nodeid and sensor_data
         :param sensor_data  : Acceleration X, Acceleration Y, Acceleration Z, and Temperature
         """
-
+        
         #str_sensor_data = bytes(str(sensor_data[0])+ str(sensor_data[1]) + str(sensor_data[2]), 'utf-8') #probably need to fix this so its 16 bytes or whatever
         str_sensor_data = struct.pack("ffff", sensor_data[0], sensor_data[1], sensor_data[2], sensor_data[3])
-        self.encrypted_nodeid = self.data_aes.encrypted(self.nodeid)
+        self.encrypted_nodeid = self.data_aes.encrypt(self.nodeid)
         self.encrypted_iv = self.iv_aes.encrypt(self.iv)
         self.encrypted_data = self.data_aes.encrypt(str_sensor_data)
        
@@ -94,8 +95,8 @@ class CryptAes:
         :return         : generated HMAC
         """
         #hmac_data = bytes(sessionID + self.encrypted_iv + self.encrypted_nodeid + self.encrypted_data, 'utf-8')
-        hmac_data = struct.pack("ifff", sessionID, self.encrypted_iv, self.encrypted_nodeid, self.encrypted_data)
-        return hmac.new(self.passpharse, msg=hmac_data, digestmod=hashlib.sha224)
+        hmac_data = struct.pack("i", sessionID) + self.encrypted_iv + self.encrypted_nodeid + self.encrypted_data
+        return hmac.new(self.passphrase, msg=hmac_data, digestmod=hashlib.sha224)
 
         
     def send_mqtt(self, hmac_signed):
@@ -104,7 +105,13 @@ class CryptAes:
         :param hmac_signed  : generated HMAC
         :return             : MQTT message to publish to Spinner #2 on Topic "Sensor_Data"
         """        
-        return self.encrypted_iv + self.encrypted_nodeid + self.encrypted_data + hmac_signed
+        encrypted_dict = {}
+        encrypted_dict["node_id"]      = str(self.encrypted_nodeid)
+        encrypted_dict["encrypted_iv"] = str(self.encrypted_iv)
+        encrypted_dict["data"]         = str(self.encrypted_data)
+        encrypted_dict["hmac"]         = str(hmac_signed.digest())
+        
+        return json.dumps(encrypted_dict)
         
     #------------------------------------SPINNER #2 Needs to Use These Functions--------------------------------------#   
     
@@ -125,10 +132,10 @@ class CryptAes:
         encrypted_data = json_data["data"]   
         
         #hmac_data = bytes(self.sessionID + encrypted_iv + encrypted_nodeid + encrypted_data, 'utf-8')  
-        hmac_data = struct.pack("ifff", self.sessionID, self.encrypted_iv, self.encrypted_nodeid, self.encrypted_data)
+        hmac_data = struct.pack("i", self.sessionID) + self.encrypted_iv + self.encrypted_nodeid + self.encrypted_data
         hmac_new = hmac.new(self.passphrase, msg=hmac_data, digestmod=hashlib.sha224)
         
-        if hmac_new != json_data["hmac"]:
+        if str(hmac_new.digest()) != json_data["hmac"]:
             return "Failed HMAC Authentication"
         else:
             return "Passed HMAC Authentication"
@@ -148,13 +155,14 @@ class CryptAes:
         encrypted_iv = json_data["encrypted_iv"]    
         encrypted_data = json_data["data"]
         
-        self.decrypted_nodeid = self.data_aes.decrypt(encrypted_nodeid)
-        self.decrypted_iv = self.iv_aes.decrypt(encrypted_iv)  
-        self.decrypted_data = self.data_aes.decrypt(encrypted_data)
+        # self.data_aes.decrypt(bytes(encrypted_nodeid), self.decrypted_nodeid)
+        self.iv_aes.decrypt(bytes(encrypted_iv), self.decrypted_iv)  
+        self.data_aes.decrypt(bytes(encrypted_data), self.decrypted_data)
         
         #sensor_data[0], sensor_data[1], sensor_data[2], sensor_data[3] = struct.unpack("ffff", self.decrypted_data)
         
         return "Successful Decryption"
+
         
 
 
