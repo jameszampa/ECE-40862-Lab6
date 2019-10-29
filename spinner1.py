@@ -182,7 +182,7 @@ def new_data(topic, msg):
         data['value1'] = '1|||' + session_id + '|||' + x_val + '|||' + y_val + '|||' + z_val + '|||' + temp
         http_get('https://maker.ifttt.com/trigger/UpdateSheet_Spinner1/with/key/diOQOLSzW1_Sh8OGpu4QgJ', ujson.dumps(data))
         
-        crypter = crypt.CryptAes(0)
+        crypter = crypt.CryptAes(1, sessionid)
         crypter.encrypt((x_val, y_val, z_val, temp))
         hmac = crypter.sign_hmac(session_id)
         encrypted_sensor_data = crypter.send_mqtt(hmac)
