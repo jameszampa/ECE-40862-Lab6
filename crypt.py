@@ -7,6 +7,7 @@ import hmac, hashlib
 import json
 import struct
 from ucryptolib import aes
+import ucryptolib
 
 
 class CryptAes:
@@ -67,8 +68,8 @@ class CryptAes:
         self.decrypted_data = None
         
         
-        self.iv_aes = AES.new(self.ivkey, AES.MODE_CBC, self.staticiv)
-        self.data_aes = AES.new(self.datakey, AES.MODE_CBC, self.iv)
+        self.iv_aes = aes(self.ivkey, 2, self.staticiv)
+        self.data_aes = aes(self.datakey, 2, self.iv)
        
 
     #------------------------------------SPINNER #1 Needs to Use These Functions--------------------------------------#   
