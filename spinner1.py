@@ -1,7 +1,9 @@
 import upip
+from machine import Pin, I2C
+from time import sleep_ms
 from network import WLAN, STA_IF
 from ubinascii import hexlify
-import crypt
+from crypt import CryptAes
 import umqtt.simple
 
 
@@ -73,7 +75,7 @@ def update_offset():
     global I2C_UNIT, TOTAL_SAMPLE_COUNT, TOTAL_OFFSET_X, TOTAL_OFFSET_Y, TOTAL_OFFSET_Z
     
     data = bytearray(6)
-    I2C_UNIT.readfrom_mem_into(ACCEL_ADDR, 0x32, data)
+    I2C_UNIT.readfrom_mem_into(83, 0x32, data)
     TOTAL_OFFSET_X += sense_g(data[0:2])
     TOTAL_OFFSET_Y += sense_g(data[2:4])
     TOTAL_OFFSET_Z += sense_g(data[4:6])
@@ -96,15 +98,15 @@ def update_offset():
 
 
 def interfacing_sensors():
-    global I2C_UNIT, PWM_ONBOARD, STATE, PREV_STATE, TOTAL_SAMPLE_COUNT
+    global I2C_UNIT, PWM_ONBOARD, STATE, PREV_STATE, TOTAL_SAMPLE_COUNT, TOTAL_OFFSET_X, TOTAL_OFFSET_Y, TOTAL_OFFSET_Z
         
     if PREV_STATE != 'Sensor':
         print('Inference Sensor State')
         
-        total_samp_count = 0
-        total_offset_x = 0
-        total_offset_y = 0
-        total_offset_z = 0
+        TOTAL_SAMPLE_COUNT = 0
+        TOTAL_OFFSET_X = 0
+        TOTAL_OFFSET_Y = 0
+        TOTAL_OFFSET_Z = 0
         
         # Initialize Accelerometer
         data = bytearray(1)
@@ -151,8 +153,8 @@ def interfacing_sensors():
             print('Calibration Complete...')
             print('Final Offsets...')
             print('X: ', x_offset, 'Y: ', y_offset, 'Z: ', z_offset)
+            print('Acceleration Sensor Configured')
     
-    print('Acceleration Sensor Configured')
     PREV_STATE = STATE
     STATE = 'Sensor'
     
@@ -182,7 +184,7 @@ def new_data(topic, msg):
         data['value1'] = '1|||' + session_id + '|||' + x_val + '|||' + y_val + '|||' + z_val + '|||' + temp
         http_get('https://maker.ifttt.com/trigger/UpdateSheet_Spinner1/with/key/diOQOLSzW1_Sh8OGpu4QgJ', ujson.dumps(data))
         
-        crypter = crypt.CryptAes(1, sessionid)
+        crypter = CryptAes(1, sessionid)
         crypter.encrypt((x_val, y_val, z_val, temp))
         hmac = crypter.sign_hmac(session_id)
         encrypted_sensor_data = crypter.send_mqtt(hmac)
@@ -218,6 +220,11 @@ I2C_UNIT = I2C(0, scl=Pin(22), sda=Pin(23), freq=400000)
 STATE = 'Idle'
 PREV_STATE = 'Idle'
 PREV_TOPIC = None
+
+TOTAL_SAMPLE_COUNT = 0
+TOTAL_OFFSET_X     = 0
+TOTAL_OFFSET_Y     = 0
+TOTAL_OFFSET_Z     = 0
 
 while(1):
     sleep_ms(100)

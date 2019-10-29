@@ -48,7 +48,7 @@ def publish_SessionID(x):
 
 
 def new_data(topic, msg):
-    global CLIENT, CRYPT_AES, RED_LED, PREV_TEMP, GREEN_LED, PREV_STATE
+    global CLIENT, CRYPT_AES, RED_LED, PREV_TEMP, GREEN_LED, PREV_STATE, SESSION_ID
         
     ack = CRYPT_AES.verify_hmac(msg)
     
@@ -57,9 +57,7 @@ def new_data(topic, msg):
             GREEN_LED.freq(10)
             GREEN_LED.duty(512)
         
-        sensor_data = CRYPT_AES.decrypt(msg)
-        
-        x_val, y_val, z_val, temp = sensor_data
+        x_val, y_val, z_val, temp = CRYPT_AES.decrypt(msg)
     
         if abs(x_val) > 1:
             RED_LED.on()
@@ -67,7 +65,7 @@ def new_data(topic, msg):
             RED_LED.on()
         elif abs(z_val) > 1:
             RED_LED.on()
-        else
+        else:
             RED_LED.off()
             
         if PREV_TEMP == None:
@@ -80,7 +78,7 @@ def new_data(topic, msg):
         
         # Update Google Sheet
         data = {}
-        data['value1'] = '1|||' + session_id + '|||' + x_val + '|||' + y_val + '|||' + z_val + '|||' + temp
+        data['value1'] = '1|||' + str(SESSION_ID) + '|||' + x_val + '|||' + y_val + '|||' + z_val + '|||' + temp
         http_get('https://maker.ifttt.com/trigger/UpdateSheet_Spinner2/with/key/diOQOLSzW1_Sh8OGpu4QgJ', ujson.dumps(data))
         
     
