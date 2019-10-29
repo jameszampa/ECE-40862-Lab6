@@ -51,16 +51,20 @@ class CryptAes:
         Encryption is of size 16 bytes.
         """
         self.nodeid     = nodeid
-        self.iv         = random.randint(1, 101).to_bytes(16, byteorder='big')
-        self.staticiv   = 0
-        self.ivkey      = 0
-        self.datakey    = 0
-        self.passphrase = 0
+        self.iv         = struct.pack("qq", random.randint(1, 101))
+        self.staticiv   = struct.pack("qq", 2)
+        self.ivkey      = struct.pack("qq", 4)
+        self.datakey    = struct.pack("qq", 8)
+        self.passphrase = struct.pack("qq", 16)
         self.sessionID  = sessionID
         
         self.encrypted_nodeid = None
         self.encrypted_iv = None
         self.encrypted_data = None
+        
+        self.decrypted_nodeid = None
+        self.decrypted_iv = None
+        self.decrypted_data = None
         
         
         self.iv_aes = AES.new(self.ivkey, AES.MODE_CBC, self.staticiv)
@@ -73,10 +77,12 @@ class CryptAes:
         using (staticiv, ivkey) for iv and (iv, datakey) for nodeid and sensor_data
         :param sensor_data  : Acceleration X, Acceleration Y, Acceleration Z, and Temperature
         """
-        #data will be in a tuple
+
+        #str_sensor_data = bytes(str(sensor_data[0])+ str(sensor_data[1]) + str(sensor_data[2]), 'utf-8') #probably need to fix this so its 16 bytes or whatever
+        str_sensor_data = struct.pack("ffff", sensor_data[0], sensor_data[1], sensor_data[2], sensor_data[3])
         self.encrypted_nodeid = self.data_aes.encrypted(self.nodeid)
         self.encrypted_iv = self.iv_aes.encrypt(self.iv)
-        self.encrypted_data = self.data_aes.encrypt(sensor_data)
+        self.encrypted_data = self.data_aes.encrypt(str_sensor_data)
        
 
     
@@ -86,6 +92,9 @@ class CryptAes:
         :param sessionID: unique value to identify the current communication session
         :return         : generated HMAC
         """
+        #hmac_data = bytes(sessionID + self.encrypted_iv + self.encrypted_nodeid + self.encrypted_data, 'utf-8')
+        hmac_data = struct.pack("ifff", sessionID, self.encrypted_iv, self.encrypted_nodeid, self.encrypted_data)
+        return hmac.new(self.passpharse, msg=hmac_data, digestmod=hashlib.sha224)
 
         
     def send_mqtt(self, hmac_signed):
@@ -114,9 +123,9 @@ class CryptAes:
         encrypted_iv = json_data["encrypted_iv"] 
         encrypted_data = json_data["data"]   
         
-        hmac_data = bytes(self.passphrase + self.sessionID + encrypted_iv + encrypted_nodeid + encrypted_data, 'utf-8')  
-        
-        hmac_new = hmac.new(bytes(self.passphrase), msg=hmac_data, digestmod=hashlib.sha224)
+        #hmac_data = bytes(self.sessionID + encrypted_iv + encrypted_nodeid + encrypted_data, 'utf-8')  
+        hmac_data = struct.pack("ifff", self.sessionID, self.encrypted_iv, self.encrypted_nodeid, self.encrypted_data)
+        hmac_new = hmac.new(self.passphrase, msg=hmac_data, digestmod=hashlib.sha224)
         
         if hmac_new != json_data["hmac"]:
             return "Failed HMAC Authentication"
@@ -141,6 +150,8 @@ class CryptAes:
         self.decrypted_nodeid = self.data_aes.decrypt(encrypted_nodeid)
         self.decrypted_iv = self.iv_aes.decrypt(encrypted_iv)  
         self.decrypted_data = self.data_aes.decrypt(encrypted_data)
+        
+        #sensor_data[0], sensor_data[1], sensor_data[2], sensor_data[3] = struct.unpack("ffff", self.decrypted_data)
         
         return "Successful Decryption"
         
