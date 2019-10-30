@@ -5,6 +5,8 @@ from network import WLAN, STA_IF
 from ubinascii import hexlify
 from crypt import CryptAes
 import umqtt.simple
+import ujson
+from usocket import socket, getaddrinfo
 
 
 def connect_WiFi(ssid='NachoWifi', password='ICUPatnight'):
@@ -160,15 +162,15 @@ def interfacing_sensors():
     
 
 def new_data(topic, msg):
-    global I2C_UNIT, STATE, PREV_STATE, PREV_TOPIC
+    global I2C_UNIT, STATE, PREV_STATE, PREV_TOPIC, client
     
-    print(topic, msg)
+    # print(topic, msg)
     
-    if (topic == b'Acknowledgement') & (prev_topic != b'Acknowledgement'):
+    if (topic == b'Acknowledgement') & (PREV_TOPIC != b'Acknowledgement'):
         PREV_TOPIC = topic
     
     if (topic == b'SessionID') & (PREV_TOPIC != b'SessionID'):
-        session_id = msg
+        session_id = int(msg)
         data = bytearray(6)
         I2C_UNIT.readfrom_mem_into(83, 0x32, data)
         x_val = sense_g([data[0], data[1]]) * 0.0039
@@ -180,29 +182,28 @@ def new_data(topic, msg):
         temp = temp_c(data)
         
         # Upload to Google Sheet
+        print(x_val, y_val, z_val, temp)
+        
         data = {}
-        data['value1'] = '1|||' + session_id + '|||' + x_val + '|||' + y_val + '|||' + z_val + '|||' + temp
+        string = '1' + '|||' + str(session_id) + '|||' + str(x_val) + '|||' + str(y_val) + '|||' + str(z_val) + '|||' + str(temp)
+        data['value1'] = string
         http_get('https://maker.ifttt.com/trigger/UpdateSheet_Spinner1/with/key/diOQOLSzW1_Sh8OGpu4QgJ', ujson.dumps(data))
         
-        crypter = CryptAes(1, sessionid)
+        crypter = CryptAes(1, session_id)
         crypter.encrypt((x_val, y_val, z_val, temp))
+        #print("DATA ENCRPTED")
         hmac = crypter.sign_hmac(session_id)
+        #print("HMAC MADE")
         encrypted_sensor_data = crypter.send_mqtt(hmac)
+        #print("Encrypted Data: ", encrypted_sensor_data)
+        client.publish("Sensor_Data", str(encrypted_sensor_data))
         
-        client.publish("Sensor_Data", encrypted_sensor_data)
     
     PREV_STATE = STATE
     STATE = 'Spinner'
     
 # connect_WiFi('Is this the Krusty Krab?', 'tHiSiStHePaSsWoRd')
 WLAN = connect_WiFi('DESKTOP-FUGJA40 9245', 'tI5845?9')
-
-client = umqtt.simple.MQTTClient(b'esp32_', 'farmer.cloudmqtt.com', user='vijxbefv', port='14245', password='YkkggDr3iVuM')
-client.connect()
-client.set_callback(new_data)
-client.subscribe(b'SessionID')
-client.subscribe(b'Acknowledgement')
-
 
 # print('Installing UMQTT and HMAC packages...')
 # upip.install('micropython-umqtt.simple')
@@ -219,16 +220,28 @@ I2C_UNIT = I2C(0, scl=Pin(22), sda=Pin(23), freq=400000)
 
 STATE = 'Idle'
 PREV_STATE = 'Idle'
-PREV_TOPIC = None
+PREV_TOPIC = b'Shit'
 
 TOTAL_SAMPLE_COUNT = 0
 TOTAL_OFFSET_X     = 0
 TOTAL_OFFSET_Y     = 0
 TOTAL_OFFSET_Z     = 0
 
+client = umqtt.simple.MQTTClient(b'esp32_123', 'farmer.cloudmqtt.com', user='vijxbefv', port='14245', password='YkkggDr3iVuM')
+client.set_callback(new_data)
+client.connect()
+client.subscribe('SessionID')
+client.subscribe('Acknowledgement')
+
+print('Init Complete')
 while(1):
     sleep_ms(100)
     if STATE == 'Sensor':
         interfacing_sensors()
     elif STATE == 'Spinner':
-        client.wait_msg()
+        #if PREV_STATE != 'Spinner':
+        #    print("Now in Sensor Demo State")
+        try:
+            client.wait_msg()
+        except:
+            pass
