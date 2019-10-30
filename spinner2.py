@@ -4,8 +4,10 @@ from ubinascii import hexlify
 import crypt
 import umqtt.simple
 import random
-import struct
-
+from machine import Pin
+from machine import PWM
+from machine import Timer
+from time import sleep_ms
 
 def connect_WiFi(ssid='NachoWifi', password='ICUPatnight'):
     wlan = WLAN(STA_IF)
@@ -40,11 +42,14 @@ def http_get(url, data):
     
     
 def publish_SessionID(x):
-    global SESSION_ID, CLIENT, CRYPT_AES
+    global SESSION_ID, CLIENT
     id = random.randint(1, 101)
     # print(id)
     SESSION_ID = id
-    CLIENT.publish("SessionID", str(id))
+    try:
+        CLIENT.publish("SessionID", str(id))
+    except:
+        pass
     CRYPT_AES = crypt.CryptAes(2, SESSION_ID)
 
 
@@ -94,13 +99,14 @@ def new_data(topic, msg):
 
 
 def interfacing_sensors():
-    global GREEN_LED, RED_LED, PREV_STATE, STATE
+    global GREEN_LED, RED_LED, PREV_STATE, STATE, tim
     
-    print('Interfacing Sensors')
-    RED_LED.off()
-    GREEN_LED.freq(1000)
-    GREEN_LED.duty(512)
-    print('Spinner 2 does not use sensors...')
+    if PREV_STATE != 'Sensor':
+        print('Interfacing Sensors')
+        RED_LED.off()
+        GREEN_LED.freq(1000)
+        GREEN_LED.duty(512)      
+        print('Spinner 2 does not use sensors...')
     
     PREV_STATE = STATE
     STATE = 'Sensor'
@@ -148,12 +154,25 @@ RED_LED    = Pin(32, Pin.OUT)
 STATE      = 'Idle'
 PREV_STATE = 'Idle'
 
-tim = Timer(1)
-tim.init(period=1000, mode=Timer.PERIODIC, callback=publish_SessionID)
+tim = None
 
+print("Init Complete")
 while(1):
     sleep_ms(100)
     if STATE == 'Sensor':
         interfacing_sensors()
     elif STATE == 'Spinner':
-        CLIENT.wait_msg()
+        if PREV_STATE == 'Sensor':
+            print("now in secure spinner demo")        
+#             if tim == None:
+#                 tim = Timer(1)
+#                 tim.init(period=1000, mode=Timer.PERIODIC, callback=publish_SessionID)
+#             else:
+#                 tim.deinit()
+#                 tim = Timer(1)
+#                 tim.init(period=1000, mode=Timer.PERIODIC, callback=publish_SessionID)
+            publish_SessionID("owefij")
+        try:
+            CLIENT.wait_msg()
+        except:
+            pass
