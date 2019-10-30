@@ -189,14 +189,17 @@ def new_data(topic, msg):
         data['value1'] = string
         http_get('https://maker.ifttt.com/trigger/UpdateSheet_Spinner1/with/key/diOQOLSzW1_Sh8OGpu4QgJ', ujson.dumps(data))
         
+        print("Boutta make an object")
         crypter = CryptAes(1, session_id)
+        print("Made CryptAes Object")
         crypter.encrypt((x_val, y_val, z_val, temp))
-        #print("DATA ENCRPTED")
+        print("DATA ENCRPTED")
         hmac = crypter.sign_hmac(session_id)
-        #print("HMAC MADE")
+        print("HMAC MADE")
         encrypted_sensor_data = crypter.send_mqtt(hmac)
-        #print("Encrypted Data: ", encrypted_sensor_data)
-        client.publish("Sensor_Data", str(encrypted_sensor_data))
+        print("Encrypted Data: ", encrypted_sensor_data)
+        print("TYpe of encrypted data: ", type(encrypted_sensor_data))
+        client.publish("Sensor_Data", encrypted_sensor_data)
         
     
     PREV_STATE = STATE
@@ -211,8 +214,8 @@ WLAN = connect_WiFi('DESKTOP-FUGJA40 9245', 'tI5845?9')
 # upip.install('micropython-hmac')
 
 print('Initialization')
-SWITCH1    = Pin(34, Pin.IN)
-SWITCH2    = Pin(39, Pin.IN)
+SWITCH1    = Pin(27, Pin.IN)
+SWITCH2    = Pin(33, Pin.IN)
 SWITCH1.irq(trigger=Pin.IRQ_RISING, handler=switch1_handler)
 SWITCH2.irq(trigger=Pin.IRQ_RISING, handler=switch2_handler)
 
@@ -245,3 +248,4 @@ while(1):
             client.wait_msg()
         except:
             pass
+
