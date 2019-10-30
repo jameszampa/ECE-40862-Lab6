@@ -144,7 +144,6 @@ class CryptAes:
         :return message : MQTT message to publish to Spinner #1 on Topic "Acknowledge", can be "Failed Authentication" 
                           if verification is unsuccessful
         """
-        
         json_data = json.loads(payload)
         
         encrypted_nodeid = json_data["node_id"]
@@ -185,8 +184,3 @@ class CryptAes:
         #sensor_data[0], sensor_data[1], sensor_data[2], sensor_data[3] = struct.unpack("ffff", self.decrypted_data)
         
         return "Successful Decryption"
-
-
-        
-
-
