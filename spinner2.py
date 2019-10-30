@@ -6,6 +6,7 @@ import umqtt.simple
 import random
 import struct
 
+
 def connect_WiFi(ssid='NachoWifi', password='ICUPatnight'):
     wlan = WLAN(STA_IF)
     wlan.active(True)
@@ -59,9 +60,7 @@ def new_data(topic, msg):
         
         crypt_msg = CRYPT_AES.decrypt(msg)
         
-        sensor_data = [None, None, None, None]
-        sensor_data[0], sensor_data[1], sensor_data[2], sensor_data[3] = struct.unpack('ffff',CRYPT_AES.decrypted_data)
-        x_val, y_val, z_val, temp = sensor_data
+        x_val, y_val, z_val, temp = struct.unpack("ffff", CRYPT_AES.decrypted_data)
         
         if abs(x_val) > 1:
             RED_LED.on()
@@ -84,9 +83,11 @@ def new_data(topic, msg):
         data = {}
         data['value1'] = '1|||' + str(SESSION_ID) + '|||' + x_val + '|||' + y_val + '|||' + z_val + '|||' + temp
         http_get('https://maker.ifttt.com/trigger/UpdateSheet_Spinner2/with/key/diOQOLSzW1_Sh8OGpu4QgJ', ujson.dumps(data))
+        CLIENT.publish("Acknowledgement", ack)
         CLIENT.publish("Acknowledgement", crypt_msg)
+    else:
+        CLIENT.publish("Acknowledgement", ack)
     
-    CLIENT.publish("Acknowledgement", ack)
     
     PREV_STATE = STATE
     STATE = 'Spinner'
