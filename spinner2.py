@@ -43,11 +43,9 @@ def http_get(url, data):
     
 def publish_SessionID(x):
     global SESSION_ID, CLIENT
-    id = random.randint(1, 101)
-    # print(id)
-    SESSION_ID = id
+    SESSION_ID += 1
     try:
-        CLIENT.publish("SessionID", str(id))
+        CLIENT.publish("SessionID", str(SESSION_ID))
     except:
         pass
     CRYPT_AES = crypt.CryptAes(2, SESSION_ID)
@@ -55,9 +53,10 @@ def publish_SessionID(x):
 
 def new_data(topic, msg):
     global CLIENT, CRYPT_AES, RED_LED, PREV_TEMP, GREEN_LED, PREV_STATE, SESSION_ID
-        
-    ack = CRYPT_AES.verify_hmac(msg)
     
+    #print(msg)
+    ack = CRYPT_AES.verify_hmac(msg)
+    #print(ack)
     if ack == 'Passed HMAC Authentication':
         if PREV_STATE != 'Spinner':
             GREEN_LED.freq(10)
@@ -84,9 +83,9 @@ def new_data(topic, msg):
             elif PREV_TEMP - temp >= 1:
                 GREEN_LED.freq(GREEN_LED.freq() - 5)
         
-        # Update Google Sheet
         data = {}
-        data['value1'] = '1|||' + str(SESSION_ID) + '|||' + x_val + '|||' + y_val + '|||' + z_val + '|||' + temp
+        string = '2' + '|||' + str(session_id) + '|||' + str(x_val) + '|||' + str(y_val) + '|||' + str(z_val) + '|||' + str(temp)
+        data['value1'] = string
         http_get('https://maker.ifttt.com/trigger/UpdateSheet_Spinner2/with/key/diOQOLSzW1_Sh8OGpu4QgJ', ujson.dumps(data))
         CLIENT.publish("Acknowledgement", ack)
         CLIENT.publish("Acknowledgement", crypt_msg)
@@ -131,14 +130,14 @@ def switch2_handler(t):
 WLAN = connect_WiFi('DESKTOP-FUGJA40 9245', 'tI5845?9')
 
 print('Initialization')
-SWITCH1    = Pin(27, Pin.IN)
-SWITCH2    = Pin(33, Pin.IN)
+SWITCH1    = Pin(34, Pin.IN)
+SWITCH2    = Pin(39, Pin.IN)
 SWITCH1.irq(trigger=Pin.IRQ_RISING, handler=switch1_handler)
 SWITCH2.irq(trigger=Pin.IRQ_RISING, handler=switch2_handler)
 
 CLIENT = umqtt.simple.MQTTClient(b'esp32_', 'farmer.cloudmqtt.com', user='vijxbefv', port='14245', password='YkkggDr3iVuM')
-CLIENT.connect()
 CLIENT.set_callback(new_data)
+CLIENT.connect()
 CLIENT.subscribe('Sensor_Data')
 
 # print('Installing UMQTT and HMAC packages...')
@@ -147,10 +146,10 @@ CLIENT.subscribe('Sensor_Data')
 # upip.install('micropython-hmac')
 
 CRYPT_AES  = None
-SESSION_ID = None
+SESSION_ID = 0
 PREV_TEMP  = None
-GREEN_LED  = PWM(Pin(12), freq=10, duty=0)
-RED_LED    = Pin(32, Pin.OUT)
+GREEN_LED  = PWM(Pin(4), freq=10, duty=0)
+RED_LED    = Pin(26, Pin.OUT)
 STATE      = 'Idle'
 PREV_STATE = 'Idle'
 
@@ -164,15 +163,16 @@ while(1):
     elif STATE == 'Spinner':
         if PREV_STATE == 'Sensor':
             print("now in secure spinner demo")        
-#             if tim == None:
-#                 tim = Timer(1)
-#                 tim.init(period=1000, mode=Timer.PERIODIC, callback=publish_SessionID)
-#             else:
-#                 tim.deinit()
-#                 tim = Timer(1)
-#                 tim.init(period=1000, mode=Timer.PERIODIC, callback=publish_SessionID)
-            publish_SessionID("owefij")
+            if tim == None:
+                tim = Timer(1)
+                tim.init(period=1000, mode=Timer.PERIODIC, callback=publish_SessionID)
+            else:
+                tim.deinit()
+                tim = Timer(1)
+                tim.init(period=1000, mode=Timer.PERIODIC, callback=publish_SessionID)
+            #publish_SessionID("owefij")
         try:
             CLIENT.wait_msg()
         except:
             pass
+
