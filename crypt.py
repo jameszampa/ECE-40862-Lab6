@@ -10,6 +10,19 @@ from ucryptolib import aes
 import ucryptolib
 
 
+def encode_str(encrypt_stuff):
+    str_temp = ''
+    for b in encrypt_stuff:
+        str_temp += chr(b)
+    return str_temp
+
+def decode_str(encrypt_stuff):
+    x = bytearray(len(encrypt_stuff))
+    for i in range(len(encrypt_stuff)):
+        x[i] = ord(encrypt_stuff[i])
+    return x
+
+
 class CryptAes:
     """Uses AES encryption to encrypt Payload/Data before sending using MQTT protocol
     The AES algo uses Cipher Block Chaining (CBC)
@@ -70,6 +83,7 @@ class CryptAes:
         # print("Hello!")
         self.iv_aes = aes(self.ivkey, 2, self.staticiv)
         self.data_aes = aes(self.datakey, 2, self.iv)
+        
         # print("Made it!")
        
 
@@ -105,11 +119,17 @@ class CryptAes:
         :param hmac_signed  : generated HMAC
         :return             : MQTT message to publish to Spinner #2 on Topic "Sensor_Data"
         """        
+
+        str_iv     = encode_str(self.encrypted_iv)
+        str_nodeid = encode_str(self.encrypted_nodeid)
+        str_data   = encode_str(self.encrypted_data)
+        str_hmac   = encode_str(hmac_signed.digest())
+        
         encrypted_dict = {}
-        encrypted_dict["node_id"]      = str(self.encrypted_nodeid)
-        encrypted_dict["encrypted_iv"] = str(self.encrypted_iv)
-        encrypted_dict["data"]         = str(self.encrypted_data)
-        encrypted_dict["hmac"]         = str(hmac_signed.digest())
+        encrypted_dict["node_id"]      = str_nodeid
+        encrypted_dict["encrypted_iv"] = str_iv
+        encrypted_dict["data"]         = str_data
+        encrypted_dict["hmac"]         = str_hmac
         
         return json.dumps(encrypted_dict)
         
@@ -128,14 +148,14 @@ class CryptAes:
         json_data = json.loads(payload)
         
         encrypted_nodeid = json_data["node_id"]
-        encrypted_iv = json_data["encrypted_iv"] 
-        encrypted_data = json_data["data"]   
+        encrypted_iv     = json_data["encrypted_iv"] 
+        encrypted_data   = json_data["data"]   
         
         #hmac_data = bytes(self.sessionID + encrypted_iv + encrypted_nodeid + encrypted_data, 'utf-8')  
         hmac_data = struct.pack("i", self.sessionID) + self.encrypted_iv + self.encrypted_nodeid + self.encrypted_data
         hmac_new = hmac.new(self.passphrase, msg=hmac_data, digestmod=hashlib.sha224)
         
-        if str(hmac_new.digest()) != json_data["hmac"]:
+        if encode_str(hmac_new.digest()) != json_data["hmac"]:
             return "Failed HMAC Authentication"
         else:
             return "Passed HMAC Authentication"
@@ -148,20 +168,24 @@ class CryptAes:
         :return         : MQTT message to publish to Spinner #1 on Topic "Acknowledge", can be "Successful Decryption"
         """
         
-        
         json_data = json.loads(payload)
         
         encrypted_nodeid = json_data["node_id"]
         encrypted_iv = json_data["encrypted_iv"]    
         encrypted_data = json_data["data"]
         
-        # self.data_aes.decrypt(bytes(encrypted_nodeid), self.decrypted_nodeid)
-        self.iv_aes.decrypt(bytes(encrypted_iv), self.decrypted_iv)  
-        self.data_aes.decrypt(bytes(encrypted_data), self.decrypted_data)
+        #print(bytes(encrypted_iv[2:-1]), 'utf8')
+        #self.data_aes.decrypt(bytes(encrypted_nodeid), self.decrypted_nodeid)
+        decrypter_iv          = aes(self.ivkey, 2, self.staticiv)
+        self.decrypted_iv     = decrypter_iv.decrypt(decode_str(encrypted_iv))
+        decrypter_data        = aes(self.datakey, 2, self.decrypted_iv)
+        self.decrypted_nodeid = decrypter_data.decrypt(decode_str(encrypted_nodeid))
+        self.decrypted_data   = decrypter_data.decrypt(decode_str(encrypted_data))
         
         #sensor_data[0], sensor_data[1], sensor_data[2], sensor_data[3] = struct.unpack("ffff", self.decrypted_data)
         
         return "Successful Decryption"
+
 
         
 
